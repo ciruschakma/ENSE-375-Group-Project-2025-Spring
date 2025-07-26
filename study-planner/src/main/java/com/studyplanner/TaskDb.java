@@ -34,5 +34,18 @@ public static List<Task> loadAllTasks() {
     return tasks;
 }
 
+public static void updateTaskInDB(Task t) {
+    try (MongoClient client = MongoClients.create("mongodb://localhost:27017")) {
+        MongoDatabase db = client.getDatabase("StudyPlanner");
+        MongoCollection<Document> collection = db.getCollection("tasks");
+        Document filter = new Document("title", t.getTitle())
+                .append("date", t.getDate().toString());
+        Document update = new Document("$set",
+                new Document("completed", t.isCompleted()));
+        collection.updateOne(filter, update);
+    }
+}
+
+
     
 }
