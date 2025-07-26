@@ -1,0 +1,609 @@
+Latest Code : 
+
+StudyPlanner App.java 
+
+package com.studyplanner;
+
+import javafx.application.Application;
+import javafx.scene.Scene;
+import javafx.scene.control.*;
+import javafx.scene.layout.*;
+import javafx.stage.Stage;
+
+import java.time.LocalDate;
+import java.time.YearMonth;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
+import javafx.geometry.*;
+import javafx.scene.input.MouseButton;
+
+public class StudyPlannerApp extends Application {
+    public static Map<LocalDate, List<Task>> tasksByDate = new HashMap<>(); // made static/public for sharing
+
+    // Helpers for ongoing/completed tasks
+    public static List<Task> getAllOngoingTasks() {
+        List<Task> result = new ArrayList<>();
+        for (List<Task> dayTasks : tasksByDate.values()) {
+            for (Task t : dayTasks) {
+                if (!t.isCompleted()) result.add(t);
+            }
+        }
+        return result;
+    }
+    public static List<Task> getAllCompletedTasks() {
+        List<Task> result = new ArrayList<>();
+        for (List<Task> dayTasks : tasksByDate.values()) {
+            for (Task t : dayTasks) {
+                if (t.isCompleted()) result.add(t);
+            }
+        }
+        return result;
+    }
+
+    private YearMonth currentYearMonth = YearMonth.now();
+    private Label clockLabel = new Label();
+    private Label monthLabel = new Label();
+    private GridPane calendarGrid = new GridPane();
+    private TaskListPage taskListPage; // Keep reference!
+
+    @Override
+    public void start(Stage stage) {
+        // --- Load tasks from DB at startup ---
+        List<Task> loadedTasks = TaskDB.loadAllTasks();
+        for (Task t : loadedTasks) {
+            tasksByDate
+                .computeIfAbsent(t.getDate(), d -> new ArrayList<>())
+                .add(t);
+        }
+
+        // Initialize
+        taskListPage = new TaskListPage();
+
+        TabPane tabPane = new TabPane();
+        Tab calendarTab = new Tab("Calendar", createCalendarPane());
+        Tab tasksTab = new Tab("Tasks", taskListPage.createContent());
+
+        tabPane.getTabs().addAll(calendarTab, tasksTab);
+        tabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
+
+        VBox root = new VBox(tabPane);
+        Scene scene = new Scene(root, 900, 600);
+        stage.setScene(scene);
+        stage.setTitle("Study Planner");
+        stage.show();
+
+        updateClock();
+        updateCalendar(currentYearMonth);
+    }
+
+    // Helper to style nav arrows
+    private void styleNavLabel(Label lbl) {
+        lbl.setStyle("-fx-font-size: 18; -fx-cursor: hand;");
+    }
+
+    // Update the clock label
+    private void updateClock() {
+        clockLabel.setText(
+            "Current Time: " +
+            java.time.LocalDateTime.now().format(DateTimeFormatter.ofPattern("EEEE, MMM dd yyyy  HH:mm:ss"))
+        );
+    }
+
+    // Calendar Pane: 50% of parent size, centered
+    private VBox createCalendarPane() {
+        Label prev = new Label("<");
+        styleNavLabel(prev);
+        prev.setOnMouseClicked(e -> {
+            currentYearMonth = currentYearMonth.minusMonths(1);
+            updateCalendar(currentYearMonth);
+        });
+
+        Label next = new Label(">");
+        styleNavLabel(next);
+        next.setOnMouseClicked(e -> {
+            currentYearMonth = currentYearMonth.plusMonths(1);
+            updateCalendar(currentYearMonth);
+        });
+
+        HBox monthNav = new HBox(10, prev, monthLabel, next);
+        monthNav.setAlignment(Pos.CENTER);
+
+        StackPane calendarWrapper = new StackPane(calendarGrid);
+        calendarWrapper.setStyle("-fx-padding: 10;");
+        calendarGrid.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+        calendarWrapper.setAlignment(Pos.CENTER);
+
+        clockLabel.setStyle("-fx-font-size: 16; -fx-padding: 10;");
+        updateClock();
+
+        VBox mainLayout = new VBox(16, clockLabel, monthNav, calendarWrapper);
+        mainLayout.setAlignment(Pos.TOP_CENTER);
+        mainLayout.setStyle("-fx-padding: 20;");
+
+        // Bind calendar size to half the VBox size
+        mainLayout.widthProperty().addListener((obs, oldW, newW) -> {
+            calendarWrapper.setPrefWidth(newW.doubleValue() * 0.5);
+        });
+        mainLayout.heightProperty().addListener((obs, oldH, newH) -> {
+            calendarWrapper.setPrefHeight(newH.doubleValue() * 0.5);
+        });
+
+        return mainLayout;
+    }
+
+    private void updateCalendar(YearMonth yearMonth) {
+        calendarGrid.getChildren().clear();
+
+        // Setup spacing
+        calendarGrid.setHgap(5);
+        calendarGrid.setVgap(5);
+
+        // Set month label
+        monthLabel.setText(
+            yearMonth.getMonth().toString().substring(0,1).toUpperCase() +
+            yearMonth.getMonth().toString().substring(1).toLowerCase() +
+            " " + yearMonth.getYear()
+        );
+
+        // --- Column Constraints (spread 7 days) ---
+        calendarGrid.getColumnConstraints().clear();
+        for (int i = 0; i < 7; i++) {
+            ColumnConstraints cc = new ColumnConstraints();
+            cc.setPercentWidth(100.0 / 7);
+            cc.setHgrow(Priority.ALWAYS);
+            calendarGrid.getColumnConstraints().add(cc);
+        }
+
+        // --- Row Constraints (spread weeks) ---
+        calendarGrid.getRowConstraints().clear();
+        LocalDate firstOfMonth = yearMonth.atDay(1);
+        int startCol = firstOfMonth.getDayOfWeek().getValue() - 1;  // Mon=1→col0
+        int daysInMonth = yearMonth.lengthOfMonth();
+        int totalCells = startCol + daysInMonth;
+        int totalRows = 1 + (int)Math.ceil(totalCells / 7.0); // +1 for header row
+
+        for (int i = 0; i < totalRows; i++) {
+            RowConstraints rc = new RowConstraints();
+            rc.setPercentHeight(100.0 / totalRows);
+            rc.setVgrow(Priority.ALWAYS);
+            calendarGrid.getRowConstraints().add(rc);
+        }
+
+        // --- Add Header Row ---
+        String[] days = {"Mon","Tue","Wed","Thu","Fri","Sat","Sun"};
+        for (int i = 0; i < days.length; i++) {
+            Label dl = new Label(days[i]);
+            dl.setStyle("-fx-font-weight: bold; -fx-padding: 5;");
+            dl.setAlignment(Pos.CENTER);
+            dl.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+            calendarGrid.add(dl, i, 0);
+            GridPane.setHgrow(dl, Priority.ALWAYS);
+            GridPane.setVgrow(dl, Priority.ALWAYS);
+        }
+
+        // --- Fill Calendar Cells ---
+        int row = 1, col = startCol;
+        for (int day = 1; day <= daysInMonth; day++) {
+            LocalDate cellDate = yearMonth.atDay(day);
+            Label cell = new Label(String.valueOf(day));
+            cell.setAlignment(Pos.CENTER);
+            cell.setPadding(new Insets(2));
+            cell.setStyle(
+                (cellDate.equals(LocalDate.now())
+                    ? "-fx-background-color:#0078d7; -fx-text-fill:white; -fx-font-weight:bold;"
+                    : "-fx-border-color:#ccc;")
+            );
+            // Mark if tasks exist
+            if (tasksByDate.containsKey(cellDate)) {
+                cell.setStyle(cell.getStyle() +
+                    "-fx-border-color:#00c853; -fx-border-width:2;");
+            }
+            // Cell size: let fill available slot
+            cell.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+            cell.setPrefSize(Double.MAX_VALUE, Double.MAX_VALUE);
+
+            // Click-to-add/view tasks
+            cell.setOnMouseClicked(evt -> {
+                if (evt.getButton() == MouseButton.PRIMARY) {
+                    showTaskDialog(cellDate);
+                }
+            });
+
+            calendarGrid.add(cell, col, row);
+            GridPane.setHgrow(cell, Priority.ALWAYS);
+            GridPane.setVgrow(cell, Priority.ALWAYS);
+
+            if (++col == 7) {
+                col = 0;
+                row++;
+            }
+        }
+    }
+
+    private void showTaskDialog(LocalDate date) {
+        Dialog<ButtonType> dialog = new Dialog<>();
+        dialog.setTitle("Tasks for " + date.format(DateTimeFormatter.ofPattern("MMM dd, yyyy")));
+
+        VBox content = new VBox(10);
+        content.setPadding(new Insets(10));
+
+        // Existing tasks
+        Label existingLabel = new Label("Existing Tasks:");
+        content.getChildren().add(existingLabel);
+List<Task> list = tasksByDate.getOrDefault(date, new ArrayList<>());
+for (Task task : list) {
+    if (!task.isCompleted()) { // Only show ongoing tasks
+        Label lbl = new Label(task.getTitle());
+        content.getChildren().add(lbl);
+    }
+}
+
+
+        // New task form (for now: just add a field for the title, but you can expand here)
+        Label newLabel = new Label("Add a new task:");
+        TextField input = new TextField();
+        input.setPromptText("Task title");
+
+        // Optional: ComboBox for priority
+        ComboBox<String> priorityBox = new ComboBox<>();
+        priorityBox.getItems().addAll("High", "Medium", "Low");
+        priorityBox.setValue("Medium");
+
+        // Optional: Spinner for complexity (1-10)
+        Spinner<Integer> complexitySpinner = new Spinner<>(1, 10, 5);
+
+        Button addBtn = new Button("Add");
+        addBtn.setOnAction(e -> {
+            String title = input.getText().trim();
+            if (!title.isEmpty()) {
+                Task t = new Task(title, date);
+                t.setPriority(priorityBox.getValue());
+                t.setComplexity(complexitySpinner.getValue());
+                tasksByDate.computeIfAbsent(date, d -> new ArrayList<>()).add(t);
+                TaskDB.saveTaskToDB(t);
+                dialog.close();
+                updateCalendar(currentYearMonth);
+                if (taskListPage != null) taskListPage.refreshTaskLists();
+            }
+        });
+
+        HBox addRow = new HBox(8, input, new Label("Priority:"), priorityBox, new Label("Complexity:"), complexitySpinner, addBtn);
+        addRow.setAlignment(Pos.CENTER_LEFT);
+
+        content.getChildren().addAll(newLabel, addRow);
+
+        dialog.getDialogPane().setContent(content);
+        dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
+        dialog.showAndWait();
+
+        if (taskListPage != null) taskListPage.refreshTaskLists();
+    }
+
+    public static void main(String[] args) {
+        launch(args);
+    }
+}
+
+
+
+Task.java
+
+package com.studyplanner;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
+public class Task {
+    private String title;
+    private LocalDate date;
+    private boolean completed;
+
+    // --- New fields ---
+    private String priority; // "High", "Medium", "Low"
+    private int complexity;  // 1-10 scale
+    private String category;
+    private String notes;
+    private LocalDateTime createdAt;
+
+    public Task(String title, LocalDate date) {
+        this.title = title;
+        this.date = date;
+        this.completed = false;
+        this.priority = "Medium";
+        this.complexity = 5;
+        this.category = "General";
+        this.notes = "";
+        this.createdAt = LocalDateTime.now();
+    }
+
+    // --- Getters and Setters ---
+
+    public String getTitle() { return title; }
+    public LocalDate getDate() { return date; }
+    public boolean isCompleted() { return completed; }
+    public void setCompleted(boolean completed) { this.completed = completed; }
+    public String getPriority() { return priority; }
+    public void setPriority(String priority) { this.priority = priority; }
+    public int getComplexity() { return complexity; }
+    public void setComplexity(int complexity) { this.complexity = complexity; }
+    public String getCategory() { return category; }
+    public void setCategory(String category) { this.category = category; }
+    public String getNotes() { return notes; }
+    public void setNotes(String notes) { this.notes = notes; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    // --- For DB loading ---
+    public Task(String title, LocalDate date, boolean completed, String priority, int complexity,
+                String category, String notes, LocalDateTime createdAt) {
+        this.title = title;
+        this.date = date;
+        this.completed = completed;
+        this.priority = priority;
+        this.complexity = complexity;
+        this.category = category;
+        this.notes = notes;
+        this.createdAt = createdAt;
+    }
+}
+
+
+
+TaskDB.java
+
+package com.studyplanner;
+
+import com.mongodb.client.*;
+import org.bson.Document;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.*;
+
+public class TaskDB {
+    private static final String CONNECTION_STRING = "mongodb://localhost:27017";
+    private static final String DB_NAME = "StudyPlanner";
+    private static final String COLLECTION_NAME = "tasks";
+
+    // Save a single task (used when adding a new one)
+    public static void saveTaskToDB(Task t) {
+      try (MongoClient client = MongoClients.create(CONNECTION_STRING)) {
+            MongoDatabase db = client.getDatabase(DB_NAME);
+            MongoCollection<Document> collection = db.getCollection(COLLECTION_NAME);
+            Document doc = new Document("title", t.getTitle())
+                    .append("date", t.getDate().toString())
+                    .append("completed", t.isCompleted())
+                    .append("priority", t.getPriority())
+                    .append("complexity", t.getComplexity())
+                    .append("category", t.getCategory())
+                    .append("notes", t.getNotes())
+                    .append("createdAt", t.getCreatedAt().toString());
+            collection.insertOne(doc);
+        }  
+    }
+
+    public static void updateTaskInDB(Task t) {
+    try (MongoClient client = MongoClients.create(CONNECTION_STRING)) {
+        MongoDatabase db = client.getDatabase(DB_NAME);
+        MongoCollection<Document> collection = db.getCollection(COLLECTION_NAME);
+        Document filter = new Document("title", t.getTitle())
+                .append("date", t.getDate().toString());
+        Document update = new Document("$set",
+                new Document("completed", t.isCompleted())
+                        .append("priority", t.getPriority())
+                        .append("complexity", t.getComplexity())
+                        .append("category", t.getCategory())
+                        .append("notes", t.getNotes())
+                        .append("createdAt", t.getCreatedAt().toString())
+        );
+        collection.updateOne(filter, update);
+    }
+}
+
+
+    // Load all tasks from the database
+    public static List<Task> loadAllTasks() {
+        List<Task> tasks = new ArrayList<>();
+        try (MongoClient client = MongoClients.create(CONNECTION_STRING)) {
+            MongoDatabase db = client.getDatabase(DB_NAME);
+            MongoCollection<Document> collection = db.getCollection(COLLECTION_NAME);
+
+            for (Document doc : collection.find()) {
+                String title = doc.getString("title");
+                String dateStr = doc.getString("date");
+                boolean completed = doc.getBoolean("completed", false);
+                String priority = doc.getString("priority");
+                int complexity = doc.containsKey("complexity") ? doc.getInteger("complexity") : 5;
+                String category = doc.getString("category");
+                String notes = doc.getString("notes");
+                String createdAtStr = doc.getString("createdAt");
+                LocalDate date = LocalDate.parse(dateStr);
+                LocalDateTime createdAt = createdAtStr != null
+                        ? LocalDateTime.parse(createdAtStr)
+                        : LocalDateTime.now();
+
+                Task t = new Task(
+                        title,
+                        date,
+                        completed,
+                        priority != null ? priority : "Medium",
+                        complexity,
+                        category != null ? category : "General",
+                        notes != null ? notes : "",
+                        createdAt
+                );
+                tasks.add(t);
+            }
+        }
+        return tasks;
+    }
+}
+
+
+
+TaskListPage.java
+
+package com.studyplanner;
+
+import javafx.collections.*;
+import javafx.collections.transformation.*;
+import javafx.geometry.*;
+import javafx.scene.control.*;
+import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.layout.*;
+import javafx.beans.property.SimpleStringProperty;
+
+import java.time.format.DateTimeFormatter;
+import java.util.*;
+
+public class TaskListPage {
+
+    private TableView<Task> ongoingTable = new TableView<>();
+    private TableView<Task> completedTable = new TableView<>();
+
+    // Controls for filtering/sorting
+    private ComboBox<String> priorityFilter = new ComboBox<>();
+    private ComboBox<String> sortByFilter = new ComboBox<>();
+
+    // Data for tables
+    private ObservableList<Task> ongoingTasks;
+    private FilteredList<Task> filtered;
+    private SortedList<Task> sorted;
+
+    public Pane createContent() {
+        // --- Ongoing Tasks Table ---
+        TableColumn<Task, String> taskCol = new TableColumn<>("Task");
+        taskCol.setCellValueFactory(new PropertyValueFactory<>("title"));
+
+        TableColumn<Task, String> dueDateCol = new TableColumn<>("Due Date");
+        dueDateCol.setCellValueFactory(cellData -> new SimpleStringProperty(
+                cellData.getValue().getDate().format(DateTimeFormatter.ofPattern("MMM dd, yyyy"))
+        ));
+
+        TableColumn<Task, String> priorityCol = new TableColumn<>("Priority");
+        priorityCol.setCellValueFactory(new PropertyValueFactory<>("priority"));
+
+        TableColumn<Task, Integer> complexityCol = new TableColumn<>("Complexity");
+        complexityCol.setCellValueFactory(new PropertyValueFactory<>("complexity"));
+
+        TableColumn<Task, String> categoryCol = new TableColumn<>("Category");
+        categoryCol.setCellValueFactory(new PropertyValueFactory<>("category"));
+
+        TableColumn<Task, String> notesCol = new TableColumn<>("Notes");
+        notesCol.setCellValueFactory(new PropertyValueFactory<>("notes"));
+
+        TableColumn<Task, String> createdAtCol = new TableColumn<>("Created At");
+        createdAtCol.setCellValueFactory(cellData -> new SimpleStringProperty(
+                cellData.getValue().getCreatedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
+        ));
+
+        ongoingTable.getColumns().setAll(taskCol, dueDateCol, priorityCol, complexityCol, categoryCol, notesCol, createdAtCol);
+        ongoingTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+
+        // --- Context Menu: Mark as Completed ---
+        ongoingTable.setRowFactory(tv -> {
+            TableRow<Task> row = new TableRow<>();
+            ContextMenu menu = new ContextMenu();
+            MenuItem completeItem = new MenuItem("Mark as Completed");
+            completeItem.setOnAction(e -> {
+                Task t = row.getItem();
+                if (t != null) {
+                    t.setCompleted(true);
+                    TaskDB.updateTaskInDB(t); // <-- call update!
+                    refreshTaskLists();
+                }
+            });
+            menu.getItems().add(completeItem);
+            row.contextMenuProperty().bind(
+                javafx.beans.binding.Bindings
+                .when(row.emptyProperty())
+                .then((ContextMenu) null)
+                .otherwise(menu)
+            );
+            return row;
+        });
+
+        // --- Filter and sort controls ---
+        priorityFilter.getItems().addAll("All", "High", "Medium", "Low");
+        priorityFilter.setValue("All");
+
+        sortByFilter.getItems().addAll("Due Date", "Priority", "Complexity");
+        sortByFilter.setValue("Due Date");
+
+        HBox filters = new HBox(10, new Label("Priority:"), priorityFilter, new Label("Sort by:"), sortByFilter);
+        filters.setPadding(new Insets(10));
+        filters.setAlignment(Pos.CENTER_LEFT);
+
+        // --- Data/Logic: FilteredList/SortedList ---
+        ongoingTasks = FXCollections.observableArrayList(StudyPlannerApp.getAllOngoingTasks());
+        filtered = new FilteredList<>(ongoingTasks, t -> true);
+        sorted = new SortedList<>(filtered);
+        ongoingTable.setItems(sorted);
+
+        // Default sorting
+        sorted.setComparator(Comparator.comparing(Task::getDate));
+
+        // Priority filter action
+        priorityFilter.valueProperty().addListener((obs, oldVal, newVal) -> {
+            filtered.setPredicate(task -> {
+                if (newVal.equals("All")) return true;
+                return task.getPriority().equalsIgnoreCase(newVal);
+            });
+        });
+
+        // Sort by
+        sortByFilter.valueProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal.equals("Due Date")) {
+                sorted.setComparator(Comparator.comparing(Task::getDate));
+            } else if (newVal.equals("Priority")) {
+                List<String> order = Arrays.asList("High", "Medium", "Low");
+                sorted.setComparator(Comparator.comparingInt(task -> order.indexOf(task.getPriority())));
+            } else if (newVal.equals("Complexity")) {
+                sorted.setComparator(Comparator.comparingInt(Task::getComplexity));
+            }
+        });
+
+        // --- Completed Tasks Table ---
+        TableColumn<Task, String> cTaskCol = new TableColumn<>("Task");
+        cTaskCol.setCellValueFactory(new PropertyValueFactory<>("title"));
+
+        TableColumn<Task, String> cDueDateCol = new TableColumn<>("Due Date");
+        cDueDateCol.setCellValueFactory(cellData -> new SimpleStringProperty(
+                cellData.getValue().getDate().format(DateTimeFormatter.ofPattern("MMM dd, yyyy"))
+        ));
+
+        completedTable.getColumns().setAll(cTaskCol, cDueDateCol);
+        completedTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        completedTable.setItems(FXCollections.observableArrayList(StudyPlannerApp.getAllCompletedTasks()));
+
+        // --- Layout ---
+        VBox ongoingBox = new VBox(
+                new Label("Ongoing Tasks:"),
+                filters,
+                ongoingTable
+        );
+        ongoingBox.setSpacing(5);
+        ongoingBox.setPadding(new Insets(5));
+
+        VBox completedBox = new VBox(
+                new Label("Completed Tasks:"),
+                completedTable
+        );
+        completedBox.setSpacing(5);
+        completedBox.setPadding(new Insets(5));
+
+        VBox root = new VBox(ongoingBox, completedBox);
+        root.setSpacing(20);
+
+        return root;
+    }
+
+    // Call this when data changes to refresh tables
+    public void refreshTaskLists() {
+        ongoingTasks.setAll(StudyPlannerApp.getAllOngoingTasks());
+        completedTable.setItems(FXCollections.observableArrayList(StudyPlannerApp.getAllCompletedTasks()));
+    }
+}
+
+
+
