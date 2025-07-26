@@ -1,29 +1,21 @@
 package com.studyplanner;
-
-import javafx.animation.Animation;
-import javafx.animation.KeyFrame;
-import javafx.animation.Timeline;
 import javafx.application.Application;
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
-import javafx.scene.input.MouseButton;
 import javafx.scene.layout.*;
 import javafx.stage.Stage;
-import javafx.util.Duration;
 
-import java.time.*;
+import java.time.LocalDate;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import javafx.geometry.*;
+import javafx.scene.input.MouseButton;
 
 public class StudyPlannerApp extends Application {
-    private Label clockLabel = new Label();
-    private GridPane calendarGrid = new GridPane();
-    private Label monthLabel = new Label();
-    private YearMonth currentYearMonth = YearMonth.now();
-    
-     // Helpers for ongoing/completed tasks
+   public static Map<LocalDate, List<Task>> tasksByDate = new HashMap<>(); // made static/public for sharing
+
+   // Helpers for ongoing/completed tasks
    public static List<Task> getAllOngoingTasks() {
        List<Task> result = new ArrayList<>();
        for (List<Task> dayTasks : tasksByDate.values()) {
@@ -43,164 +35,238 @@ public class StudyPlannerApp extends Application {
        return result;
    }
 
+   private YearMonth currentYearMonth = YearMonth.now();
+   private Label clockLabel = new Label();
+   private Label monthLabel = new Label();
+   private GridPane calendarGrid = new GridPane();
+   private TaskListPage taskListPage; // Keep reference!
 
-    // In-memory task storage
-    private Map<LocalDate, List<Task>> tasksByDate = new HashMap<>();
+   @Override
+   public void start(Stage stage) {
+       // --- Load tasks from DB at startup ---
+       List<Task> loadedTasks = TaskDB.loadAllTasks();
+       for (Task t : loadedTasks) {
+           tasksByDate
+               .computeIfAbsent(t.getDate(), d -> new ArrayList<>())
+               .add(t);
+       }
 
-    @Override
-    public void start(Stage primaryStage) {
-        // 1) Real-time clock
-        Timeline clock = new Timeline(new KeyFrame(Duration.seconds(1), e -> updateClock()));
-        clock.setCycleCount(Animation.INDEFINITE);
-        clock.play();
+       // Initialize
+       taskListPage = new TaskListPage();
 
-        // 2) Calendar initial render
-        updateCalendar(currentYearMonth);
+      TabPane tabPane = new TabPane();
+       Tab calendarTab = new Tab("Calendar", createCalendarPane());
+       Tab tasksTab = new Tab("Tasks", taskListPage.createContent());
 
-        // 3) Month navigation controls
-        Label prev = new Label("<");
-        styleNavLabel(prev);
-        prev.setOnMouseClicked(e -> {
-            currentYearMonth = currentYearMonth.minusMonths(1);
-            updateCalendar(currentYearMonth);
-        });
+      tabPane.getTabs().addAll(calendarTab, tasksTab);
+       tabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
 
-        Label next = new Label(">");
-        styleNavLabel(next);
-        next.setOnMouseClicked(e -> {
-            currentYearMonth = currentYearMonth.plusMonths(1);
-            updateCalendar(currentYearMonth);
-        });
+       VBox root = new VBox(tabPane);
+       Scene scene = new Scene(root, 900, 600);
+       stage.setScene(scene);
+       stage.setTitle("Study Planner");
+      stage.show();
 
-        HBox monthNav = new HBox(10, prev, monthLabel, next);
-        monthNav.setAlignment(Pos.CENTER);
+       updateClock();
+       updateCalendar(currentYearMonth);
+   }
 
-        VBox mainLayout = new VBox(16, clockLabel, monthNav, calendarGrid);
-        mainLayout.setAlignment(Pos.TOP_CENTER);
-        mainLayout.setStyle("-fx-padding: 20;");
+   // Helper to style nav arrows
+   private void styleNavLabel(Label lbl) {
+       lbl.setStyle("-fx-font-size: 18; -fx-cursor: hand;");
+   }
 
-        Scene scene = new Scene(mainLayout, 500, 420);
-        primaryStage.setScene(scene);
-        primaryStage.setTitle("Smart Study Planner");
-        primaryStage.show();
-    }
+   // Update the clock label
+   private void updateClock() {
+       clockLabel.setText(
+           "Current Time: " +
+           java.time.LocalDateTime.now().format(DateTimeFormatter.ofPattern("EEEE, MMM dd yyyy  HH:mm:ss"))
+       );
+   }
 
-    // Helper to style nav arrows
-    private void styleNavLabel(Label lbl) {
-        lbl.setStyle("-fx-font-size: 18; -fx-cursor: hand;");
-    }
+   // Calendar Pane: 50% of parent size, centered
+   private VBox createCalendarPane() {
+       Label prev = new Label("<");
+       styleNavLabel(prev);
+       prev.setOnMouseClicked(e -> {
+           currentYearMonth = currentYearMonth.minusMonths(1);
+           updateCalendar(currentYearMonth);
+       });
 
-    // Update the clock label
-    private void updateClock() {
-        clockLabel.setText(
-            "Current Time: " +
-            LocalDateTime.now().format(DateTimeFormatter.ofPattern("EEEE, MMM dd yyyy  HH:mm:ss"))
-        );
-    }
+       Label next = new Label(">");
+       styleNavLabel(next);
+       next.setOnMouseClicked(e -> {
+           currentYearMonth = currentYearMonth.plusMonths(1);
+           updateCalendar(currentYearMonth);
+       });
 
-    // Build month calendar
-    private void updateCalendar(YearMonth yearMonth) {
-        calendarGrid.getChildren().clear();
-        calendarGrid.setHgap(5);
-        calendarGrid.setVgap(5);
+       HBox monthNav = new HBox(10, prev, monthLabel, next);
+       monthNav.setAlignment(Pos.CENTER);
 
-        // Month title
-        monthLabel.setText(
-            yearMonth.getMonth().toString().substring(0,1).toUpperCase() +
-            yearMonth.getMonth().toString().substring(1).toLowerCase() +
-            " " + yearMonth.getYear()
-        );
+       StackPane calendarWrapper = new StackPane(calendarGrid);
+       calendarWrapper.setStyle("-fx-padding: 10;");
+       calendarGrid.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+       calendarWrapper.setAlignment(Pos.CENTER);
+       clockLabel.setStyle("-fx-font-size: 16; -fx-padding: 10;");
+       updateClock();
+       VBox mainLayout = new VBox(16, clockLabel, monthNav, calendarWrapper);
+       mainLayout.setAlignment(Pos.TOP_CENTER);
+       mainLayout.setStyle("-fx-padding: 20;");
 
-        // Day-of-week headers
-        String[] days = {"Mon","Tue","Wed","Thu","Fri","Sat","Sun"};
-        for (int i=0; i<days.length; i++) {
-            Label dl = new Label(days[i]);
-            dl.setStyle("-fx-font-weight: bold; -fx-padding: 5;");
-            calendarGrid.add(dl, i, 0);
-        }
+       // Bind calendar size to half the VBox size
+       mainLayout.widthProperty().addListener((obs, oldW, newW) -> {
+           calendarWrapper.setPrefWidth(newW.doubleValue() * 0.5);
+       });
+       mainLayout.heightProperty().addListener((obs, oldH, newH) -> {
+           calendarWrapper.setPrefHeight(newH.doubleValue() * 0.5);
+       });
+       return mainLayout;
+   }
 
-        // Populate day cells
-        LocalDate firstOfMonth = yearMonth.atDay(1);
-        int startCol = firstOfMonth.getDayOfWeek().getValue() - 1;  // Mon=1→col0
-        int daysInMonth = yearMonth.lengthOfMonth();
-        int row=1, col=startCol;
+  private void updateCalendar(YearMonth yearMonth) {
+       calendarGrid.getChildren().clear();
 
-        for (int day=1; day<=daysInMonth; day++) {
-            LocalDate cellDate = yearMonth.atDay(day);
-            Label cell = new Label(String.valueOf(day));
-            cell.setMinSize(45, 35);
-            cell.setAlignment(Pos.CENTER);
-            cell.setPadding(new Insets(2));
-            cell.setStyle(
-                (cellDate.equals(LocalDate.now())
-                    ? "-fx-background-color:#0078d7; -fx-text-fill:white; -fx-font-weight:bold; "
-                    : "-fx-border-color:#ccc;")
-            );
+       // Setup spacing
+       calendarGrid.setHgap(5);
+       calendarGrid.setVgap(5);
 
-            // Mark if tasks exist
-            if (tasksByDate.containsKey(cellDate)) {
-                cell.setStyle(cell.getStyle() +
-                    "-fx-border-color:#00c853; -fx-border-width:2;");
-            }
+       // Set month label
+       monthLabel.setText(
+           yearMonth.getMonth().toString().substring(0,1).toUpperCase() +
+           yearMonth.getMonth().toString().substring(1).toLowerCase() +
+           " " + yearMonth.getYear()
+       );
 
-            // Click-to-add/view tasks
-            cell.setOnMouseClicked(evt -> {
-                if (evt.getButton() == MouseButton.PRIMARY) {
-                    showTaskDialog(cellDate);
-                }
-            });
+      // --- Column Constraints (spread 7 days) ---
+       calendarGrid.getColumnConstraints().clear();
+       for (int i = 0; i < 7; i++) {
+           ColumnConstraints cc = new ColumnConstraints();
+           cc.setPercentWidth(100.0 / 7);
+           cc.setHgrow(Priority.ALWAYS);
+           calendarGrid.getColumnConstraints().add(cc);
+       }
 
-            calendarGrid.add(cell, col, row);
-            if (++col == 7) {
-                col = 0;
-                row++;
-            }
-        }
-    }
+       // --- Row Constraints (spread weeks) ---
+       calendarGrid.getRowConstraints().clear();
+       LocalDate firstOfMonth = yearMonth.atDay(1);
+       int startCol = firstOfMonth.getDayOfWeek().getValue() - 1;  // Mon=1→col0
+       int daysInMonth = yearMonth.lengthOfMonth();
+       int totalCells = startCol + daysInMonth;
+       int totalRows = 1 + (int)Math.ceil(totalCells / 7.0); // +1 for header row
 
-    // Dialog to view existing & add new tasks
-    private void showTaskDialog(LocalDate date) {
-        Dialog<ButtonType> dialog = new Dialog<>();
-        dialog.setTitle("Tasks for " + date.format(DateTimeFormatter.ofPattern("MMM dd, yyyy")));
+       for (int i = 0; i < totalRows; i++) {
+           RowConstraints rc = new RowConstraints();
+           rc.setPercentHeight(100.0 / totalRows);
+           rc.setVgrow(Priority.ALWAYS);
+           calendarGrid.getRowConstraints().add(rc);
+       }
 
-        VBox content = new VBox(10);
-        content.setPadding(new Insets(10));
+       // --- Add Header Row ---
+       String[] days = {"Mon","Tue","Wed","Thu","Fri","Sat","Sun"};
+       for (int i = 0; i < days.length; i++) {
+           Label dl = new Label(days[i]);
+           dl.setStyle("-fx-font-weight: bold; -fx-padding: 5;");
+           dl.setAlignment(Pos.CENTER);
+           dl.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+           calendarGrid.add(dl, i, 0);
+           GridPane.setHgrow(dl, Priority.ALWAYS);
+           GridPane.setVgrow(dl, Priority.ALWAYS);
+       }
 
-        // Existing tasks
-        Label existingLabel = new Label("Existing Tasks:");
-        content.getChildren().add(existingLabel);
-        List<Task> list = tasksByDate.getOrDefault(date, new ArrayList<>());
-        list.forEach(task -> {
-            CheckBox cb = new CheckBox(task.getTitle());
-            cb.setSelected(task.isCompleted());
-            cb.setOnAction(e -> task.setCompleted(cb.isSelected()));
-            content.getChildren().add(cb);
-        });
+       // --- Fill Calendar Cells ---
+       int row = 1, col = startCol;
+       for (int day = 1; day <= daysInMonth; day++) {
+           LocalDate cellDate = yearMonth.atDay(day);
+           Label cell = new Label(String.valueOf(day));
+           cell.setAlignment(Pos.CENTER);
+           cell.setPadding(new Insets(2));
+           cell.setStyle(
+               (cellDate.equals(LocalDate.now())
+                   ? "-fx-background-color:#0078d7; -fx-text-fill:white; -fx-font-weight:bold;"
+                   : "-fx-border-color:#ccc;")
+           );
+           // Mark if tasks exist
+           if (tasksByDate.containsKey(cellDate)) {
+               cell.setStyle(cell.getStyle() +
+                   "-fx-border-color:#00c853; -fx-border-width:2;");
+           }
+           // Cell size: let fill available slot
+           cell.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+           cell.setPrefSize(Double.MAX_VALUE, Double.MAX_VALUE);
 
-        // New task form
-        Label newLabel = new Label("Add a new task:");
-        TextField input = new TextField();
-        input.setPromptText("Task title");
-        Button addBtn = new Button("Add");
-        addBtn.setOnAction(e -> {
-            String title = input.getText().trim();
-            if (!title.isEmpty()) {
-                Task t = new Task(title, date);
-                tasksByDate.computeIfAbsent(date, d -> new ArrayList<>()).add(t);
-                dialog.close();
-                updateCalendar(currentYearMonth);
-            }
-        });
+           // Click-to-add/view tasks
+           cell.setOnMouseClicked(evt -> {
+               if (evt.getButton() == MouseButton.PRIMARY) {
+                   showTaskDialog(cellDate);
+               }
+           });
+           calendarGrid.add(cell, col, row);
+           GridPane.setHgrow(cell, Priority.ALWAYS);
+           GridPane.setVgrow(cell, Priority.ALWAYS);
 
-        HBox addRow = new HBox(8, input, addBtn);
-        content.getChildren().addAll(newLabel, addRow);
+           if (++col == 7) {
+               col = 0;
+               row++;
+           }
+       }
+   }
+   private void showTaskDialog(LocalDate date) {
+       Dialog<ButtonType> dialog = new Dialog<>();
+       dialog.setTitle("Tasks for " + date.format(DateTimeFormatter.ofPattern("MMM dd, yyyy")));
+       VBox content = new VBox(10);
+       content.setPadding(new Insets(10));
 
-        dialog.getDialogPane().setContent(content);
-        dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
-        dialog.showAndWait();
-    }
+       // Existing tasks
+       Label existingLabel = new Label("Existing Tasks:");
+       content.getChildren().add(existingLabel);
+List<Task> list = tasksByDate.getOrDefault(date, new ArrayList<>());
+for (Task task : list) {
+  if (!task.isCompleted()) { // Only show ongoing tasks
+       Label lbl = new Label(task.getTitle());
+       content.getChildren().add(lbl);
+   }
+}
 
-    public static void main(String[] args) {
-        launch(args);
-    }
+       // New task form (for now: just add a field for the title, but you can expand here)
+       Label newLabel = new Label("Add a new task:");
+       TextField input = new TextField();
+       input.setPromptText("Task title");
+
+       // Optional: ComboBox for priority
+       ComboBox<String> priorityBox = new ComboBox<>();
+       priorityBox.getItems().addAll("High", "Medium", "Low");
+       priorityBox.setValue("Medium");
+
+       // Optional: Spinner for complexity (1-10)
+       Spinner<Integer> complexitySpinner = new Spinner<>(1, 10, 5);
+
+       Button addBtn = new Button("Add");
+       addBtn.setOnAction(e -> {
+           String title = input.getText().trim();
+           if (!title.isEmpty()) {
+               Task t = new Task(title, date);
+               t.setPriority(priorityBox.getValue());
+               t.setComplexity(complexitySpinner.getValue());
+               tasksByDate.computeIfAbsent(date, d -> new ArrayList<>()).add(t);
+               TaskDB.saveTaskToDB(t);
+               dialog.close();
+               updateCalendar(currentYearMonth);
+               if (taskListPage != null) taskListPage.refreshTaskLists();
+           }
+       });
+
+       HBox addRow = new HBox(8, input, new Label("Priority:"), priorityBox, new Label("Complexity:"), complexitySpinner, addBtn);
+       addRow.setAlignment(Pos.CENTER_LEFT);
+       content.getChildren().addAll(newLabel, addRow);
+
+       dialog.getDialogPane().setContent(content);
+       dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
+       dialog.showAndWait();
+
+       if (taskListPage != null) taskListPage.refreshTaskLists();
+   }
+
+   public static void main(String[] args) {
+       launch(args);
+   }
 }
