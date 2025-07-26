@@ -51,6 +51,20 @@ public void testLoadTasksFromDB() {
     assertEquals("LoadMe", loaded.get(0).getTitle());
 }
 
+@Test
+public void testUpdateTaskInDB() {
+    Task t = new Task("Complete Me", LocalDate.of(2025, 7, 28));
+    TaskDB.saveTaskToDB(t);
+
+    t.setCompleted(true);
+    TaskDB.updateTaskInDB(t); // (Does not exist yet!)
+
+    Document found = taskCollection.find(new Document("title", "Complete Me")).first();
+    assertNotNull(found);
+    assertTrue("Task should be completed", found.getBoolean("completed", false));
+}
+
+
 
     
 }
