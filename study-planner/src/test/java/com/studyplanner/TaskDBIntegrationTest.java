@@ -36,5 +36,21 @@ public class TaskDBIntegrationTest {
         assertNotNull("Task should be saved in MongoDB", found);
     }
 
+    @Test
+public void testLoadTasksFromDB() {
+    // Insert a record directly into MongoDB
+    Document doc = new Document("title", "LoadMe")
+                        .append("date", "2025-07-27")
+                        .append("completed", false);
+    taskCollection.insertOne(doc);
+
+    // This method does not exist yet—will fail!
+    java.util.List<Task> loaded = TaskDB.loadAllTasks();
+
+    assertFalse("Should load at least one task", loaded.isEmpty());
+    assertEquals("LoadMe", loaded.get(0).getTitle());
+}
+
+
     
 }
