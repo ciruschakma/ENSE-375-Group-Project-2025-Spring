@@ -57,8 +57,7 @@ public void testUpdateTaskInDB() {
     TaskDB.saveTaskToDB(t);
 
     t.setCompleted(true);
-    TaskDB.updateTaskInDB(t); // (Does not exist yet!)
-
+    TaskDB.updateTaskInDB(t); 
     Document found = taskCollection.find(new Document("title", "Complete Me")).first();
     assertNotNull(found);
     assertTrue("Task should be completed", found.getBoolean("completed", false));

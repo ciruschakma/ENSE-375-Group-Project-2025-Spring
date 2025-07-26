@@ -22,6 +22,27 @@ public class StudyPlannerApp extends Application {
     private GridPane calendarGrid = new GridPane();
     private Label monthLabel = new Label();
     private YearMonth currentYearMonth = YearMonth.now();
+    
+     // Helpers for ongoing/completed tasks
+   public static List<Task> getAllOngoingTasks() {
+       List<Task> result = new ArrayList<>();
+       for (List<Task> dayTasks : tasksByDate.values()) {
+           for (Task t : dayTasks) {
+               if (!t.isCompleted()) result.add(t);
+           }
+       }
+       return result;
+   }
+   public static List<Task> getAllCompletedTasks() {
+       List<Task> result = new ArrayList<>();
+       for (List<Task> dayTasks : tasksByDate.values()) {
+           for (Task t : dayTasks) {
+               if (t.isCompleted()) result.add(t);
+           }
+       }
+       return result;
+   }
+
 
     // In-memory task storage
     private Map<LocalDate, List<Task>> tasksByDate = new HashMap<>();
