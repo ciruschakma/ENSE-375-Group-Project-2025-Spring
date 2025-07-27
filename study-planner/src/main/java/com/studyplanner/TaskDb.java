@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-public class TaskDb {
+public class TaskDB {
     private static final String DB_URL = "jdbc:sqlite:tasks.db";
 
     static {
