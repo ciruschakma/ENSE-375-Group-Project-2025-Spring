@@ -1,69 +1,89 @@
 package com.studyplanner;
 
-import com.mongodb.client.*;
-import org.bson.Document;
-import org.junit.*;
+import org.junit.Test;
+import java.time.Duration;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.Assert.*;
 
 public class TaskDBIntegrationTest {
-    private MongoClient mongoClient;
-    private MongoCollection<Document> taskCollection;
 
-    @Before
-    public void setUp() {
-        mongoClient = MongoClients.create("mongodb://localhost:27017");
-        MongoDatabase db = mongoClient.getDatabase("StudyPlanner");
-        taskCollection = db.getCollection("tasks");
-        taskCollection.deleteMany(new Document()); // Clean up before each test
-    }
+    @Test
+    public void testAddAndRetrieveTaskIntegration() {
+        LocalDate today = LocalDate.now();
 
-    @After
-    public void tearDown() {
-        taskCollection.deleteMany(new Document());
-        mongoClient.close();
+        Task task = new Task(
+            "Integration test", today, false,
+            "Medium", 2, "Integration", "integration test notes",
+            LocalDateTime.now(), LocalDateTime.now(),
+            Duration.ofMinutes(45), true
+        );
+
+        TaskDB.addTask(task);
+
+        List<Task> tasks = TaskDB.getTasksForDate(today);
+        boolean found = tasks.stream().anyMatch(
+            t -> t.getTitle().equals("Integration test") &&
+                 t.getCategory().equals("Integration")
+        );
+        assertTrue("Added task should be retrievable from DB", found);
     }
 
     @Test
-    public void testSaveTaskToDB() {
-        Task t = new Task("TDD Save Test", LocalDate.of(2025, 7, 26));
+    public void testUpdateTaskIntegration() {
+        LocalDate date = LocalDate.now().plusDays(2);
 
-        TaskDB.saveTaskToDB(t); 
+        // Add a task
+        Task task = new Task(
+            "Integration update", date, false,
+            "Low", 1, "Integration", "will update",
+            LocalDateTime.now(), LocalDateTime.now(),
+            Duration.ofMinutes(60), false
+        );
+        TaskDB.addTask(task);
 
-        Document found = taskCollection.find(new Document("title", "TDD Save Test")).first();
-        assertNotNull("Task should be saved in MongoDB", found);
+        // Simulate user completes task and changes notes
+        Task updatedTask = new Task(
+            "Integration update", date, true,
+            "Low", 1, "Integration", "updated notes",
+            task.getCreatedAt(), task.getStartTime(),
+            task.getDuration(), true
+        );
+        TaskDB.updateTaskInDB(updatedTask);
+
+        List<Task> tasks = TaskDB.getTasksForDate(date);
+        boolean found = tasks.stream().anyMatch(
+            t -> t.getTitle().equals("Integration update") &&
+                 t.isCompleted() &&
+                 t.getNotes().equals("updated notes")
+        );
+        assertTrue("Updated task should reflect changes in DB", found);
     }
 
     @Test
-public void testLoadTasksFromDB() {
-    // Insert a record directly into MongoDB
-    Document doc = new Document("title", "LoadMe")
-                        .append("date", "2025-07-27")
-                        .append("completed", false);
-    taskCollection.insertOne(doc);
+    public void testMultipleTasksSameDateIntegration() {
+        LocalDate date = LocalDate.now().plusDays(3);
 
-    // This method does not exist yet—will fail!
-    java.util.List<Task> loaded = TaskDB.loadAllTasks();
+        Task task1 = new Task(
+            "Integration Multi1", date, false,
+            "High", 3, "Integration", "task 1",
+            LocalDateTime.now(), LocalDateTime.now(),
+            Duration.ofMinutes(10), false
+        );
+        Task task2 = new Task(
+            "Integration Multi2", date, false,
+            "Medium", 2, "Integration", "task 2",
+            LocalDateTime.now(), LocalDateTime.now(),
+            Duration.ofMinutes(20), false
+        );
 
-    assertFalse("Should load at least one task", loaded.isEmpty());
-    assertEquals("LoadMe", loaded.get(0).getTitle());
-}
+        TaskDB.addTask(task1);
+        TaskDB.addTask(task2);
 
-@Test
-public void testUpdateTaskInDB() {
-    Task t = new Task("Complete Me", LocalDate.of(2025, 7, 28));
-    TaskDB.saveTaskToDB(t);
-
-    t.setCompleted(true);
-    TaskDB.updateTaskInDB(t); 
-    Document found = taskCollection.find(new Document("title", "Complete Me")).first();
-    assertNotNull(found);
-    assertTrue("Task should be completed", found.getBoolean("completed", false));
-}
-
-
-
-    
+        List<Task> tasks = TaskDB.getTasksForDate(date);
+        assertTrue(tasks.stream().anyMatch(t -> t.getTitle().equals("Integration Multi1")));
+        assertTrue(tasks.stream().anyMatch(t -> t.getTitle().equals("Integration Multi2")));
+    }
 }

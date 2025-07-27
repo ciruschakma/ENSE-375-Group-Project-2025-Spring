@@ -9,6 +9,7 @@ import java.sql.Statement;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -156,4 +157,71 @@ public class TaskDB {
         }
         return tasks;
     }
+
+public static void addTask(Task task) {
+    if (task == null) throw new IllegalArgumentException("Task cannot be null");
+
+    String sql = "INSERT INTO tasks (title, date, completed, priority, complexity, category, notes, createdAt, startTime, durationSeconds, timerEnabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+    try (Connection conn = DriverManager.getConnection(DB_URL);
+         PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+        stmt.setString(1, task.getTitle());
+        stmt.setString(2, task.getDate().toString());
+        stmt.setInt(3, task.isCompleted() ? 1 : 0);
+        stmt.setString(4, task.getPriority());
+        stmt.setInt(5, task.getComplexity());
+        stmt.setString(6, task.getCategory());
+        stmt.setString(7, task.getNotes());
+        stmt.setString(8, task.getCreatedAt().toString());
+        stmt.setString(9, task.getStartTime().toString());
+        stmt.setLong(10, task.getDuration().getSeconds());
+        stmt.setInt(11, task.isTimerEnabled() ? 1 : 0);
+
+        stmt.executeUpdate();
+
+    } catch (SQLException e) {
+        throw new RuntimeException("Failed to insert task into database", e);
+    }
+}
+
+public static List<Task> getTasksForDate(LocalDate date) {
+    List<Task> tasks = new ArrayList<>();
+    String sql = "SELECT * FROM tasks WHERE date = ?";
+
+    try (Connection conn = DriverManager.getConnection(DB_URL);
+         PreparedStatement ps = conn.prepareStatement(sql)) {
+
+        ps.setString(1, date.toString());
+        ResultSet rs = ps.executeQuery();
+
+        while (rs.next()) {
+            String title = rs.getString("title");
+            LocalDate taskDate = LocalDate.parse(rs.getString("date"));
+            boolean completed = rs.getInt("completed") != 0;
+            String priority = rs.getString("priority");
+            int complexity = rs.getInt("complexity");
+            String category = rs.getString("category");
+            String notes = rs.getString("notes");
+            LocalDateTime createdAt = LocalDateTime.parse(rs.getString("createdAt"));
+            String startTimeStr = rs.getString("startTime");
+            LocalDateTime startTime = (startTimeStr != null) ? LocalDateTime.parse(startTimeStr) : LocalDateTime.now();
+            long durSecs = 0;
+            try { durSecs = rs.getLong("durationSeconds"); } catch (SQLException ignore) {}
+            Duration duration = Duration.ofSeconds(durSecs > 0 ? durSecs : 30 * 60);
+            boolean timerEnabled = false;
+            try { timerEnabled = rs.getInt("timerEnabled") != 0; } catch (SQLException ignore) {}
+
+            Task t = new Task(
+                title, taskDate, completed,
+                priority, complexity, category, notes, createdAt,
+                startTime, duration, timerEnabled
+            );
+            tasks.add(t);
+        }
+    } catch (SQLException e) {
+        throw new RuntimeException("Failed to fetch tasks", e);
+    }
+    return tasks;
+}
 }

@@ -1,0 +1,5 @@
+com\studyplanner\TaskDBDataFlowTest.class
+com\studyplanner\TaskDBIntegrationTest.class
+com\studyplanner\StudyPlannerAppTest.class
+com\studyplanner\TaskDBPathTest.class
+com\studyplanner\TaskTest.class

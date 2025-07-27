@@ -4,9 +4,12 @@ package com.studyplanner;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 public class Task {
     private String title;
+    private String description;
+    private LocalTime time;
     private LocalDate date;
     private boolean completed;
 
@@ -54,10 +57,19 @@ public class Task {
         this.timerEnabled = timerEnabled;
     }
 
+    public Task(String description, LocalDate date, LocalTime time, boolean completed) {
+        this.description = description;
+        this.date = date;
+        this.time = time;
+        this.completed = completed;
+    }
+
     // Getters/setters for all fields...
 
     public String getTitle() { return title; }
+    public String getDescription() { return description; }
     public LocalDate getDate() { return date; }
+    public LocalTime getTime() { return time; }
     public boolean isCompleted() { return completed; }
     public void setCompleted(boolean completed) { if (!this.completed && completed) this.completed = true; }
 
