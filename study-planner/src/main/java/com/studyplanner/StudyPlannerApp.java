@@ -1,16 +1,34 @@
 package com.studyplanner;
-import javafx.application.Application;
-import javafx.scene.Scene;
-import javafx.scene.control.*;
-import javafx.scene.layout.*;
-import javafx.stage.Stage;
-
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
-import javafx.geometry.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javafx.application.Application;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.Scene;
+import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.Dialog;
+import javafx.scene.control.Label;
+import javafx.scene.control.Spinner;
+import javafx.scene.control.Tab;
+import javafx.scene.control.TabPane;
+import javafx.scene.control.TextField;
 import javafx.scene.input.MouseButton;
+import javafx.scene.layout.ColumnConstraints;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.RowConstraints;
+import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
+import javafx.stage.Stage;
 
 public class StudyPlannerApp extends Application {
    public static Map<LocalDate, List<Task>> tasksByDate = new HashMap<>(); // made static/public for sharing
@@ -34,6 +52,30 @@ public class StudyPlannerApp extends Application {
        }
        return result;
    }
+
+   public static boolean addTask(String title,
+                              LocalDate date,
+                              String priority,
+                              int complexity) {
+            // 1) Title non‑empty
+            if (title == null || title.isBlank()) return false;
+            // 2) Date must be today or future
+            if (date.isBefore(LocalDate.now()))    return false;
+            // 3) Priority must be one of High/Medium/Low
+            List<String> valid = List.of("High","Medium","Low");
+            if (!valid.contains(priority))          return false;
+
+            // Build task
+            Task t = new Task(title, date);
+            t.setPriority(priority);
+            t.setComplexity(complexity);
+            // 4) Add to in‑memory map
+            tasksByDate.computeIfAbsent(date, d -> new ArrayList<>()).add(t);
+            // 5) Persist
+            TaskDB.saveTaskToDB(t);
+            return true;
+        }
+
 
    private YearMonth currentYearMonth = YearMonth.now();
    private Label clockLabel = new Label();

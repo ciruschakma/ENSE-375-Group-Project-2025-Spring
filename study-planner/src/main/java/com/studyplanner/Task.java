@@ -31,7 +31,7 @@ public class Task {
     public String getTitle() { return title; }
     public LocalDate getDate() { return date; }
     public boolean isCompleted() { return completed; }
-    public void setCompleted(boolean completed) { this.completed = completed; }
+    public void setCompleted(boolean completed) { if (!this.completed && completed) {this.completed = true;} }
     public String getPriority() { return priority; }
     public void setPriority(String priority) { this.priority = priority; }
     public int getComplexity() { return complexity; }
