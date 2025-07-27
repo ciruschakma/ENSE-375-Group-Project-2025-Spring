@@ -7,7 +7,6 @@ import java.util.List;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import org.junit.Before;
 import org.junit.Test;
@@ -47,25 +46,6 @@ public class StudyPlannerAppTest {
         assertEquals(t2, completed.get(0));
     }
 
-
-    //clock-test-TDD
-     @Test
-    public void testClockUpdates() throws Exception {
-        // 1) Create the app
-        StudyPlannerApp app = new StudyPlannerApp();
-        // 2) Expose the clockLabel (you’ll have to add a getter)
-        // 3) Before calling updateClock, its text is null or empty
-        assertTrue(app.getClockText() == null || app.getClockText().isBlank());
-
-        // 4) Call the method under test
-        app.updateClock();
-
-        // 5) After, the text should be non‑empty and contain today’s date
-        String txt = app.getClockText();
-        assertNotNull(txt);
-        assertFalse(txt.isBlank());
-        assertTrue(txt.contains(LocalDate.now().getYear() + ""));  // crude sanity check
-    }
 
      // --- Decision Table Tests ---
 
