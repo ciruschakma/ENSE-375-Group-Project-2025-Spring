@@ -36,7 +36,6 @@ study-planner/
 ├── tasks.db                             # SQLite database (auto-created)
 ├── pom.xml                              # Maven project config
 ├── .gitignore                           # Git ignore rules
-└── testing.md                           # Test plan and coverage
 ```
 
 ## 🚀 How to Run the Project
