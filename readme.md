@@ -36,7 +36,7 @@ study-planner/
 ├── tasks.db                             # SQLite database (auto-created)
 ├── pom.xml                              # Maven project config
 ├── .gitignore                           # Git ignore rules
-└── TESTING.md                           # Test plan and coverage
+└── testing.md                           # Test plan and coverage
 ```
 
 ## 🚀 How to Run the Project
@@ -79,7 +79,7 @@ We used the following testing strategies:
   - State Transition Testing
   - Use Case Testing
 
-📄 See `TESTING.md` for complete test cases and design details.
+📄 See `testing.md` for complete test cases and design details.
 
 ## ⚠️ Important Dev Note
 
