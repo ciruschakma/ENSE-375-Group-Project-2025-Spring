@@ -51,7 +51,7 @@ study-planner/
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/YourUsername/ENSE-375-Group-Project-2025-Spring.git
+   git clone https://github.com/ciruschakma/ENSE-375-Group-Project-2025-Spring.git
    cd ENSE-375-Group-Project-2025-Spring
    ```
 
