@@ -36,8 +36,6 @@ study-planner/
 ├── tasks.db                             # SQLite database (auto-created)
 ├── pom.xml                              # Maven project config
 ├── .gitignore                           # Git ignore rules
-├── README.md                            # Project documentation (this file)
-├── REPORT.md                            # Engineering report
 └── TESTING.md                           # Test plan and coverage
 ```
 
