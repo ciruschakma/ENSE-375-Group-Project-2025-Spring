@@ -1,4 +1,4 @@
-# Smart Study‑Session Planner
+# Task/Study Session Planner
 
 A lightweight JavaFX-based desktop application that helps students organize their academic workload by generating a personalized, optimized weekly study calendar. It integrates task scheduling, categorization, and deadline tracking through a user-friendly interface.
 
