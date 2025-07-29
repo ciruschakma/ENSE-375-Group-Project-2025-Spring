@@ -1,8 +1,14 @@
 package com.studyplanner;
 
+import java.time.Duration;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
 import org.junit.Test;
 
 public class TaskTest {
@@ -60,6 +66,64 @@ public class TaskTest {
         String longTitle = "A".repeat(255);
         Task task = new Task(longTitle, LocalDate.now());
         assertEquals(longTitle, task.getTitle());
+    }
+
+     // ----------------------------------------------------
+    // New Boundary‑Value Tests for Duration
+    // ----------------------------------------------------
+
+    @Test
+    public void testDurationLowerBoundary() {
+        Task t = new Task("DurLow", LocalDate.now());
+        t.setDuration(Duration.ofMinutes(1));  // minimum allowed
+        assertEquals(Duration.ofMinutes(1), t.getDuration());
+    }
+
+    @Test
+    public void testDurationUpperBoundary() {
+        Task t = new Task("DurHigh", LocalDate.now());
+        t.setDuration(Duration.ofMinutes(240));  // maximum allowed by spinner
+        assertEquals(Duration.ofMinutes(240), t.getDuration());
+    }
+
+    @Test
+    public void testDurationJustBelowLower() {
+        Task t = new Task("DurBelow", LocalDate.now());
+        t.setDuration(Duration.ofSeconds(59));  // just below 1 minute
+        assertEquals(Duration.ofSeconds(59), t.getDuration());
+    }
+
+    @Test
+    public void testDurationJustAboveUpper() {
+        Task t = new Task("DurAbove", LocalDate.now());
+        t.setDuration(Duration.ofMinutes(241));  // just above max
+        assertEquals(Duration.ofMinutes(241), t.getDuration());
+    }
+
+    // ----------------------------------------------------
+    // New Equivalence‑Class & State‑Transition Tests for Timer
+    // ----------------------------------------------------
+
+    @Test
+    public void testDefaultTimerSettings() {
+        Task t = new Task("DefaultTimer", LocalDate.now());
+        // defaults set in constructor
+        assertFalse("Timer should be disabled by default", t.isTimerEnabled());
+        assertEquals("Default duration should be 30 minutes",
+                     Duration.ofMinutes(30), t.getDuration());
+        // startTime defaults to 'now' (non-null)
+        assertNotNull(t.getStartTime());
+    }
+
+    @Test
+    public void testEnableAndDisableTimer() {
+        Task t = new Task("ToggleTimer", LocalDate.now());
+        // enable
+        t.setTimerEnabled(true);
+        assertTrue("Timer should be enabled", t.isTimerEnabled());
+        // disable again
+        t.setTimerEnabled(false);
+        assertFalse("Timer should be disabled", t.isTimerEnabled());
     }
 
      // -----------------------

@@ -1,6 +1,8 @@
 package com.studyplanner;
 
+import java.time.Duration;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -79,6 +81,22 @@ public class StudyPlannerAppTest {
         assertFalse("Invalid priority should not be added", added);
     }
 
+    // ─── Decision Table: complexity boundaries ────────────────────────────────
+
+    @Test
+    public void dtComplexityLowerBoundaryShouldAccept() {
+        LocalDate date = LocalDate.now();
+        boolean added = StudyPlannerApp.addTask("Low complexity", date, "Medium", 1);
+        assertTrue("Complexity=1 should be accepted", added);
+    }
+
+    @Test
+    public void dtComplexityUpperBoundaryShouldAccept() {
+        LocalDate date = LocalDate.now().plusDays(1);
+        boolean added = StudyPlannerApp.addTask("High complexity", date, "Medium", 10);
+        assertTrue("Complexity=10 should be accepted", added);
+    }
+
      // --- STATE TRANSITION TESTS ---
 
     @Test
@@ -141,6 +159,29 @@ public class StudyPlannerAppTest {
         // 5) Final checks
         assertTrue(StudyPlannerApp.getAllCompletedTasks().contains(t));
         assertTrue(StudyPlannerApp.getAllOngoingTasks().isEmpty());
+    }
+
+     // --- Timer Delay Calculation Tests ---
+    // These are pure unit tests (state‑transition / boundary‑value tests)
+    // that verify computeDelaySeconds() correctly handles past vs. future start times.
+
+    @Test
+    public void testComputeDelay_PastStart() {
+        // State‑transition / boundary test: startTime in the past → delay ≤ 0
+        Task t = new Task("Past", LocalDate.now());
+        t.setStartTime(LocalDateTime.now().minusSeconds(5));
+        long delay = StudyPlannerApp.computeDelaySeconds(t);
+        assertTrue("Delay should be ≤ 0 for past start times", delay <= 0);
+    }
+
+    @Test
+    public void testComputeDelay_FutureStart() {
+        // State‑transition / boundary test: startTime in the future → positive delay
+        Task t = new Task("Future", LocalDate.now());
+        t.setStartTime(LocalDateTime.now().plusSeconds(120));
+        long delay = StudyPlannerApp.computeDelaySeconds(t);
+        assertTrue("Delay should be ≈ 120 seconds",
+                   Math.abs(delay - 120) < 2);
     }
 }
 

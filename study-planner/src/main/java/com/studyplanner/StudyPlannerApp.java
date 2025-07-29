@@ -78,6 +78,11 @@ public class StudyPlannerApp extends Application {
         return true;
     }
 
+    /** Returns the delay in seconds between now and the task's startTime. */
+    public static long computeDelaySeconds(Task t) {
+        return java.time.Duration.between(LocalDateTime.now(), t.getStartTime()).getSeconds();
+    }
+
     private YearMonth currentYearMonth = YearMonth.now();
     private Label clockLabel = new Label();
     private Label monthLabel = new Label();

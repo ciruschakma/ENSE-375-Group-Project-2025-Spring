@@ -21,6 +21,8 @@ We applied the following testing techniques:
 - Tests include all getter and setter methods
 - Verifies data encapsulation and time-related attributes
 - Ensures valid construction and manipulation of task attributes
+- Verifies duration boundaries (1–240 min) and edge values
+- Tests timer toggling (enabled/disabled) and default timer state
 
 ### TaskDB.java
 - Focused on interaction with SQLite
@@ -74,13 +76,14 @@ rm tasks.db       # Mac/Linux
 
 ## 🧪 Validation Testing Techniques
 
-| Technique                | Description                                | Example |
-|--------------------------|--------------------------------------------|---------|
-| **Boundary Value**       | Tests limits of priority/complexity ranges | Complexity: 0 (min), 10 (max) |
-| **Equivalence Class**    | Groups valid/invalid values for attributes | Title: valid (non-empty), invalid (null) |
-| **Decision Table**       | Covers rules for marking tasks as complete | If `MarkComplete` clicked → move to completed table |
-| **State Transition**     | Tests status changes and resulting actions | Task: `incomplete → complete` triggers update |
-| **Use Case**             | Validates user workflows from UI           | Add task → Mark done → Verify in completed table |
+| Technique                | Description                                       | Example |
+|--------------------------|---------------------------------------------------|---------|
+| **Boundary Value**       | Tests limits of task fields and timers            | Complexity: 1–10; Duration: 1–240 minutes |
+| **Equivalence Class**    | Groups valid/invalid values for inputs            | Priority: High/Medium/Low vs. invalid; Title: non-empty vs. empty |
+| **Decision Table**       | Covers logic rules for task creation inputs       | Valid title + future date + known priority = accepted |
+| **State Transition**     | Tests allowed/blocked state flows in app logic    | Timer: scheduled → counting down; Task: incomplete → complete |
+| **Use Case**             | Validates end-to-end user actions and results     | Add task → Mark complete → Check in completed list |
+
 
 ---
 
@@ -94,6 +97,18 @@ rm tasks.db       # Mac/Linux
 4. Confirm it's shown in completed task list
 
 **Expected Result**: Task appears only in the correct final state table
+
+---
+
+**Scenario**: User adds a timed task that starts immediately  
+**Steps**:
+1. Enter task with `timerEnabled = true`, `startTime = now`, `duration = 30 min`
+2. Submit the task
+3. Confirm countdown begins immediately
+4. Wait or fast-forward → confirm “Time’s up” alert appears
+
+**Expected Result**: A popup shows countdown and alerts when time runs out
+
 
 ---
 
